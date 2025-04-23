@@ -1,0 +1,220 @@
+{
+    "nodes": [
+        {
+            "id": "START",
+            "label": "Start",
+            "description": "Entry point of conversation",
+            "details": {
+                "description": "Initial state when conversation begins",
+                "activation": "When graph.invoke is called",
+                "conditions": [
+                    "Initial state dictionary created",
+                    "Messages array initialized",
+                    "Conversation stage set to 'conversation'"
+                ],
+                "tools": ["State Manager"],
+                "transitions": {
+                    "interactive_conversation": "Begin structured dialogue"
+                }
+            }
+        },
+        {
+            "id": "interactive_conversation",
+            "label": "Conversation",
+            "description": "Multi-turn dialogue using LLM",
+            "details": {
+                "description": "Structured information gathering with LLM",
+                "activation": "After START or reset_conversation",
+                "conditions": [
+                    "JSON validation of LLM response",
+                    "Question count tracking (max 10)",
+                    "Information sufficiency check"
+                ],
+                "tools": [
+                    "learnlm-1.5-pro",
+                    "JSON Parser",
+                    "State Manager"
+                ],
+                "transitions": {
+                    "interactive_conversation": "proceed_to_research: false",
+                    "determine_research_needs": "proceed_to_research: true",
+                    "END": "Exit requested or error"
+                }
+            }
+        },
+        {
+            "id": "determine_research_needs",
+            "label": "Research",
+            "description": "Medical research using Perplexity",
+            "details": {
+                "description": "Research using Perplexity sonar-pro model",
+                "activation": "When LLM indicates sufficient information",
+                "conditions": [
+                    "Rate limits respected",
+                    "API availability check",
+                    "Valid symptom data"
+                ],
+                "tools": [
+                    "Perplexity sonar-pro",
+                    "Rate Limiter",
+                    "HTTP Requests"
+                ],
+                "transitions": {
+                    "generate_analysis": "Research complete",
+                    "END": "API or timeout error"
+                }
+            }
+        },
+        {
+            "id": "generate_analysis",
+            "label": "Analysis",
+            "description": "Process research findings",
+            "details": {
+                "description": "Generate medical analysis report",
+                "activation": "After research completion",
+                "conditions": [
+                    "Research data validated",
+                    "Symptom details available",
+                    "Markdown formatting"
+                ],
+                "tools": [
+                    "learnlm-1.5-pro",
+                    "Markdown Parser",
+                    "State Manager"
+                ],
+                "transitions": {
+                    "final_response": "Analysis complete",
+                    "END": "Processing error"
+                }
+            }
+        },
+        {
+            "id": "final_response",
+            "label": "Report",
+            "description": "Format medical report",
+            "details": {
+                "description": "Present formatted analysis with disclaimers",
+                "activation": "Analysis phase complete",
+                "conditions": [
+                    "Report content validated",
+                    "Disclaimers included",
+                    "Stage set to 'complete'"
+                ],
+                "tools": [
+                    "Markdown Parser",
+                    "State Manager"
+                ],
+                "transitions": {
+                    "reset_conversation": "New topic phrase detected",
+                    "END": "Conversation complete"
+                }
+            }
+        },
+        {
+            "id": "reset_conversation",
+            "label": "Reset",
+            "description": "Reset for new topic",
+            "details": {
+                "description": "Clean state for new conversation",
+                "activation": "New topic request detected",
+                "conditions": [
+                    "Previous conversation complete",
+                    "Last user message preserved",
+                    "State variables reset"
+                ],
+                "tools": ["State Manager"],
+                "transitions": {
+                    "interactive_conversation": "Start new topic",
+                    "END": "Reset error or exit"
+                }
+            }
+        },
+        {
+            "id": "END",
+            "label": "End",
+            "description": "Terminal state",
+            "details": {
+                "description": "End conversation or yield for input",
+                "activation": "Any terminal condition met",
+                "conditions": [
+                    "User types 'exit'",
+                    "Critical error occurs",
+                    "Analysis complete",
+                    "Yielding for user input"
+                ],
+                "tools": ["State Manager"],
+                "transitions": {
+                    "END": "Terminal state"
+                }
+            }
+        }
+    ],
+    "links": [
+        {
+            "source": "START",
+            "target": "interactive_conversation",
+            "type": "transition",
+            "condition": "Initialize conversation"
+        },
+        {
+            "source": "interactive_conversation",
+            "target": "interactive_conversation",
+            "type": "transition",
+            "condition": "proceed_to_research: false"
+        },
+        {
+            "source": "interactive_conversation",
+            "target": "determine_research_needs",
+            "type": "transition",
+            "condition": "proceed_to_research: true"
+        },
+        {
+            "source": "interactive_conversation",
+            "target": "END",
+            "type": "transition",
+            "condition": "Exit requested"
+        },
+        {
+            "source": "determine_research_needs",
+            "target": "generate_analysis",
+            "type": "transition",
+            "condition": "Research complete"
+        },
+        {
+            "source": "determine_research_needs",
+            "target": "END",
+            "type": "transition",
+            "condition": "API/timeout error"
+        },
+        {
+            "source": "generate_analysis",
+            "target": "final_response",
+            "type": "transition",
+            "condition": "Analysis generated"
+        },
+        {
+            "source": "generate_analysis",
+            "target": "END",
+            "type": "transition",
+            "condition": "Processing error"
+        },
+        {
+            "source": "final_response",
+            "target": "reset_conversation",
+            "type": "transition",
+            "condition": "New topic detected"
+        },
+        {
+            "source": "final_response",
+            "target": "END",
+            "type": "transition",
+            "condition": "Conversation complete"
+        },
+        {
+            "source": "reset_conversation",
+            "target": "interactive_conversation",
+            "type": "transition",
+            "condition": "Start new topic"
+        }
+    ]
+}
